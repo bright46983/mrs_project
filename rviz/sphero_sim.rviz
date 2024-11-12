@@ -183,12 +183,12 @@ Visualization Manager:
       Enabled: true
       Name: Map
       Topic: /map
-      Unreliable: false
+      Unreliable: true
       Use Timestamp: false
       Value: true
     - Class: rviz/MarkerArray
       Enabled: true
-      Marker Topic: /robot_9/visualization
+      Marker Topic: /robot_2/visualization
       Name: MarkerArray
       Namespaces:
         neighbors: true
@@ -222,7 +222,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 3.170758008956909
+      Distance: 11.403865814208984
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -230,17 +230,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: -1.2454569339752197
-        Y: 0.7928555607795715
-        Z: -0.0006107722874730825
+        X: -0.2453872263431549
+        Y: -0.1108890175819397
+        Z: 0.04652736335992813
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.5597963333129883
+      Pitch: 1.5697963237762451
       Target Frame: robot_0/base_link
-      Yaw: 1.5204023122787476
+      Yaw: 1.5704022645950317
     Saved: ~
 Window Geometry:
   Displays:
@@ -258,5 +258,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1717
-  X: 172
-  Y: 146
+  X: 626
+  Y: 242
