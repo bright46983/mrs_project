@@ -109,13 +109,28 @@ class Boid:
         allign_acc = Point()
 
         if neighbor_boids != []:
-            # for n_boid in neighbor_boids:
-                
-            #     allign_acc.x = ...
-            #     allign_acc.y = ...
-            return self.limit_acc(allign_acc)
+            # container to store average velocity of neighboring boids
+            xvel_avg = 0
+            yvel_avg = 0
+
+            # loop through all neighboring boids
+            for n_boid in neighbor_boids:
+                # sum the velocity of neighboring boids
+                xvel_avg += n_boid.velocity.x
+                yvel_avg += n_boid.velocity.y
+
+            # take the average velocity of neighboring boids as the "desired velocity"
+            xvel_avg /= len(neighbor_boids)
+            yvel_avg /= len(neighbor_boids)
+
+            # compute necessary acceleration                
+            allign_acc.x = self.velocity.x - xvel_avg
+            allign_acc.y = self.velocity.y - yvel_avg
         else:
-            return self.limit_acc(allign_acc)
+            allign_acc.x = 0
+            allign_acc.y = 0
+            
+        return self.limit_acc(allign_acc)
         
     def obstacle_acc(self):
         """
