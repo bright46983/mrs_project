@@ -67,15 +67,29 @@ class Boid:
         sep_acc = Point()
 
         if neighbor_boids != []:
-            # for n_boid in neighbor_boids:
+            # Iterate through each neighbor boid
+            for n_boid in neighbor_boids:
                 
-            #     sep_acc.x = ...
-            #     sep_acc.y = ...
+                # Calculate the distance between the current boid and its neighbor
+                dis = np.linalg.norm(np.array([self.position.x, self.position.y])-np.array([n_boid.position.x, n_boid.position.y]))
+
+                # Avoid division by zero
+                if dis > 0:  # Not sure if it should be exactly 0 or maybe very small value
+                    # Repulsion force: inverse proportionality to the distance
+                    # This creates a vector pointing away from the neighboring boid.
+                    sep_acc.x += (self.position.x - n_boid.position.x)/dis
+                    sep_acc.y += (self.position.y - n_boid.position.y)/dis
+
+            # Normalize the acceleration vector
+            magnitude = np.linalg.norm(np.array([sep_acc.x, sep_acc.y]))
+            if magnitude > 0:
+                sep_acc.x /= magnitude
+                sep_acc.y /= magnitude
 
             return self.limit_acc(sep_acc)
 
-        else:
-            return self.limit_acc(sep_acc)
+        # Return zero acceleration if no neighbors are present
+        return self.limit_acc(sep_acc)
         
     def cohesion_acc(self):
         """
