@@ -102,10 +102,16 @@ class Boid:
         coh_acc = Point()
 
         if neighbor_boids != []:
-            # for n_boid in neighbor_boids:
-                
-            #     coh_acc.x = ...
-            #     coh_acc.y = ...
+            avg_position = Point()
+            for n_boid in neighbor_boids:
+                avg_position.x += n_boid.position.x
+                avg_position.y += n_boid.position.y
+
+            avg_position.x /= len(neighbor_boids)
+            avg_position.y /= len(neighbor_boids)
+    
+            coh_acc.x = avg_position.x - self.position.x
+            coh_acc.y = avg_position.y - self.position.y
 
             return self.limit_acc(coh_acc)
 
