@@ -23,7 +23,7 @@ class Boid:
 
         #tuning params
         self.max_acc = 3.0
-        self.max_vel = 1.0
+        self.max_vel = 0.5
         self.nav_gain = 3.0  # Navigation gain, controls the strength of the navigation behavior
         self.neighbor_range = 1
         
@@ -170,12 +170,15 @@ class Boid:
             nav_acc.x = (self.goal.x - self.position.x) * self.nav_gain
             nav_acc.y = (self.goal.y - self.position.y) * self.nav_gain
 
-        return nav_acc
+        return self.limit_acc(nav_acc)
     
     def combine_acc(self, nav_acc,sep_acc,coh_acc,allign_acc,obs_acc):
         combined_acc = Point()
-        combined_acc.x = nav_acc.x + allign_acc.x
-        combined_acc.y = nav_acc.y + allign_acc.y
+        combined_acc.x = nav_acc.x  +allign_acc.x + 3*sep_acc.x
+        combined_acc.y = nav_acc.y  +allign_acc.y + 3*sep_acc.y
+
+        combined_acc.x = nav_acc.x  
+        combined_acc.y = nav_acc.y  
 
         # rospy.loginfo("nav,coh,allign,sep,obs,com [x]: {},{},{},{},{}".format(nav_acc.x,coh_acc.x, allign_acc.x, sep_acc.x, obs_acc.x,combined_acc.x))
         # rospy.loginfo("nav,coh,allign,sep,obs,com [y]: {},{},{},{},{}".format(nav_acc.y,coh_acc.y, allign_acc.y, sep_acc.y, obs_acc.y,combined_acc.y))

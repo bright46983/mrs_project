@@ -79,10 +79,7 @@ class BoidNode:
         obs_acc = self.boid.obstacle_acc()
         
         self.acc_list = [nav_acc,sep_acc,coh_acc,align_acc,obs_acc]
-        all_acc = self.boid.combine_acc(nav_acc,sep_acc,coh_acc,align_acc,obs_acc)
-        if self.id == 0:
-            print(align_acc)
-            print(all_acc)
+        all_acc = self.boid.combine_acc(nav_acc,sep_acc,coh_acc,align_acc,obs_acc)        
         out_vel = self.boid.cal_velocity(all_acc,self.dt)
 
         cmd_vel = Twist()

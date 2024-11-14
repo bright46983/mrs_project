@@ -78,6 +78,36 @@ Visualization Manager:
           Value: true
         robot_1/odom:
           Value: false
+        robot_10/base_footprint:
+          Value: true
+        robot_10/base_link:
+          Value: true
+        robot_10/odom:
+          Value: true
+        robot_11/base_footprint:
+          Value: true
+        robot_11/base_link:
+          Value: true
+        robot_11/odom:
+          Value: true
+        robot_12/base_footprint:
+          Value: true
+        robot_12/base_link:
+          Value: true
+        robot_12/odom:
+          Value: true
+        robot_13/base_footprint:
+          Value: true
+        robot_13/base_link:
+          Value: true
+        robot_13/odom:
+          Value: true
+        robot_14/base_footprint:
+          Value: true
+        robot_14/base_link:
+          Value: true
+        robot_14/odom:
+          Value: true
         robot_2/base_footprint:
           Value: false
         robot_2/base_link:
@@ -142,6 +172,26 @@ Visualization Manager:
             robot_1/base_footprint:
               robot_1/base_link:
                 {}
+          robot_10/odom:
+            robot_10/base_footprint:
+              robot_10/base_link:
+                {}
+          robot_11/odom:
+            robot_11/base_footprint:
+              robot_11/base_link:
+                {}
+          robot_12/odom:
+            robot_12/base_footprint:
+              robot_12/base_link:
+                {}
+          robot_13/odom:
+            robot_13/base_footprint:
+              robot_13/base_link:
+                {}
+          robot_14/odom:
+            robot_14/base_footprint:
+              robot_14/base_link:
+                {}
           robot_2/odom:
             robot_2/base_footprint:
               robot_2/base_link:
@@ -187,13 +237,13 @@ Visualization Manager:
       Use Timestamp: false
       Value: true
     - Class: rviz/MarkerArray
-      Enabled: true
+      Enabled: false
       Marker Topic: /robot_2/visualization
       Name: MarkerArray
       Namespaces:
-        neighbors: true
+        {}
       Queue Size: 100
-      Value: true
+      Value: false
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -222,7 +272,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 11.403865814208984
+      Distance: 20.911474227905273
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -258,5 +308,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1717
-  X: 626
-  Y: 242
+  X: 203
+  Y: 229
