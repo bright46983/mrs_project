@@ -124,8 +124,8 @@ class Boid:
             yvel_avg /= len(neighbor_boids)
 
             # compute necessary acceleration                
-            allign_acc.x = self.velocity.x - xvel_avg
-            allign_acc.y = self.velocity.y - yvel_avg
+            allign_acc.x = xvel_avg - self.velocity.x 
+            allign_acc.y = yvel_avg - self.velocity.y 
         else:
             allign_acc.x = 0
             allign_acc.y = 0
@@ -158,8 +158,15 @@ class Boid:
 
         return nav_acc
     
-    def combine_acc(self, nav_acc,coh_acc, allign_acc, sep_acc, obs_acc):
-        return nav_acc
+    def combine_acc(self, nav_acc,sep_acc,coh_acc,allign_acc,obs_acc):
+        combined_acc = Point()
+        combined_acc.x = nav_acc.x + allign_acc.x
+        combined_acc.y = nav_acc.y + allign_acc.y
+
+        # rospy.loginfo("nav,coh,allign,sep,obs,com [x]: {},{},{},{},{}".format(nav_acc.x,coh_acc.x, allign_acc.x, sep_acc.x, obs_acc.x,combined_acc.x))
+        # rospy.loginfo("nav,coh,allign,sep,obs,com [y]: {},{},{},{},{}".format(nav_acc.y,coh_acc.y, allign_acc.y, sep_acc.y, obs_acc.y,combined_acc.y))
+
+        return combined_acc
 
     ##################################################
     #### helper functions

@@ -1,4 +1,6 @@
 <launch>
+    <param name="boid_count" value="3"/>
+
     <node pkg="sphero_stage" type="start.py" name="lsim_node" output="screen"/> 
     <node pkg="mrs_project" type="launch_boid.py" name="launch_boid_node" output="screen"/> 
         
