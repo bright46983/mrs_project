@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import rospy
-from geometry_msgs.msg import Twist, PoseStamped
+from geometry_msgs.msg import Twist, PoseStamped, Point
 from std_msgs.msg import Header
 from nav_msgs.msg import Odometry, OccupancyGrid
 import sys
@@ -35,6 +35,7 @@ class BoidNode:
             rospy.Subscriber('robot_{}/odom'.format(i), Odometry, self.boid_cb)
 
         self.other_boids[self.id] = None
+        self.acc_list = []
 
         self.dt = 0.1
 
@@ -77,7 +78,11 @@ class BoidNode:
         align_acc = self.boid.allignment_acc()
         obs_acc = self.boid.obstacle_acc()
         
+        self.acc_list = [nav_acc,sep_acc,coh_acc,align_acc,obs_acc]
         all_acc = self.boid.combine_acc(nav_acc,sep_acc,coh_acc,align_acc,obs_acc)
+        if self.id == 0:
+            print(align_acc)
+            print(all_acc)
         out_vel = self.boid.cal_velocity(all_acc,self.dt)
 
         cmd_vel = Twist()
@@ -105,25 +110,47 @@ class BoidNode:
         ns = "neighbors"
 
         marker = self.create_marker(999,ns, Marker.SPHERE, [self.boid.position.x,self.boid.position.y,0.2], 
-            [0.2,0.2,0.2], [0,1,0,1], frame_id)
+            [0.2,0.2,0.2], [0,1,0,1], frame_id, None)
         self.visualize_array.markers.append(marker)
 
 
         for n in self.boid.neighbor_boids:
             marker = self.create_marker(marker_id,ns, Marker.SPHERE, [n.position.x, n.position.y, 0.2], 
-            scale, color, frame_id)
+            scale, color, frame_id,None)
             marker_id += 1
 
             self.visualize_array.markers.append(marker)
         
     
     def visualize_acc(self):
-        pass
+        marker_id  = 30
+        scale = [0.05, 0.1, 0.0] # shaft, head
+        colors = [
+                [1, 0, 0, 1],  # Red - nav
+                [0, 1, 0, 1],  # Green -sep
+                [0, 0, 1, 1],  # Blue  - coh
+                [1, 1, 0, 1],  # Yellow - allign
+                [1, 0, 1, 1]   # Magenta - obs
+            ]
+        frame_id = "robot_{}/base_footprint".format(self.id)
+        ns = "acc"
+        
+        for i, acc in enumerate(self.acc_list):
+            points = [Point(0,0,0),Point(acc.x, acc.y,0)]
+            color = colors[i]
+            marker = self.create_marker(marker_id,ns, Marker.ARROW, [0,0,0.0], 
+                scale, color, frame_id, points)
+            marker_id += 1
+            self.visualize_array.markers.append(marker)
+
+        
+
+        
 
     def visualize_goal(self):
         pass
 
-    def create_marker(self, marker_id, ns, marker_type, position, scale, color, frame_id):
+    def create_marker(self, marker_id, ns, marker_type, position, scale, color, frame_id,points):
         marker = Marker()
         marker.header.frame_id = frame_id  # Reference frame (change as necessary)
         marker.header.stamp = rospy.Time.now()
@@ -143,6 +170,10 @@ class BoidNode:
         marker.pose.orientation.z = 0.0
         marker.pose.orientation.w = 1.0
 
+        # Set maker Points
+        if points:
+            marker.points = points
+
         # Set marker scale
         marker.scale.x = scale[0]
         marker.scale.y = scale[1]
@@ -155,6 +186,7 @@ class BoidNode:
         marker.color.a = color[3]  # Alpha (transparency)
 
         return marker
+      
 
     
         

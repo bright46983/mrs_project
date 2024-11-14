@@ -36,7 +36,7 @@ def launch_boids(num_boids):
 
 if __name__ == '__main__':
     # Fetch number of boids from ROS parameter server or use a default value
-    num_boids = rospy.get_param('num_of_robots', 5)  # Default is 5 if not specified
+    num_boids = rospy.get_param('boid_count', 5)  # Default is 5 if not specified
     
     # Launch the boid nodes
     launch_boids(num_boids)

@@ -109,13 +109,28 @@ class Boid:
         allign_acc = Point()
 
         if neighbor_boids != []:
-            # for n_boid in neighbor_boids:
-                
-            #     allign_acc.x = ...
-            #     allign_acc.y = ...
-            return self.limit_acc(allign_acc)
+            # container to store average velocity of neighboring boids
+            xvel_avg = 0
+            yvel_avg = 0
+
+            # loop through all neighboring boids
+            for n_boid in neighbor_boids:
+                # sum the velocity of neighboring boids
+                xvel_avg += n_boid.velocity.x
+                yvel_avg += n_boid.velocity.y
+
+            # take the average velocity of neighboring boids as the "desired velocity"
+            xvel_avg /= len(neighbor_boids)
+            yvel_avg /= len(neighbor_boids)
+
+            # compute necessary acceleration                
+            allign_acc.x = xvel_avg - self.velocity.x 
+            allign_acc.y = yvel_avg - self.velocity.y 
         else:
-            return self.limit_acc(allign_acc)
+            allign_acc.x = 0
+            allign_acc.y = 0
+            
+        return self.limit_acc(allign_acc)
         
     def obstacle_acc(self):
         """
@@ -143,8 +158,15 @@ class Boid:
 
         return nav_acc
     
-    def combine_acc(self, nav_acc,coh_acc, allign_acc, sep_acc, obs_acc):
-        return nav_acc
+    def combine_acc(self, nav_acc,sep_acc,coh_acc,allign_acc,obs_acc):
+        combined_acc = Point()
+        combined_acc.x = nav_acc.x + allign_acc.x
+        combined_acc.y = nav_acc.y + allign_acc.y
+
+        # rospy.loginfo("nav,coh,allign,sep,obs,com [x]: {},{},{},{},{}".format(nav_acc.x,coh_acc.x, allign_acc.x, sep_acc.x, obs_acc.x,combined_acc.x))
+        # rospy.loginfo("nav,coh,allign,sep,obs,com [y]: {},{},{},{},{}".format(nav_acc.y,coh_acc.y, allign_acc.y, sep_acc.y, obs_acc.y,combined_acc.y))
+
+        return combined_acc
 
     ##################################################
     #### helper functions
