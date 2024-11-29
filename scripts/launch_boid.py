@@ -17,7 +17,7 @@ def launch_boids(num_boids):
         node = roslaunch.core.Node(
             package='mrs_project',   # Replace with your actual package name
             node_type='boid_node.py',      # Node type (Python script)
-            name=f'robot_{i}', 
+            name=f'robot_controller_{i}', 
             output='screen',
             args='{}'.format(i)
         )

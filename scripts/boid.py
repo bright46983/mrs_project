@@ -24,7 +24,7 @@ class Boid:
         #tuning params
         self.max_acc = 3.0
         self.max_vel = 1.0
-        self.nav_gain = 3.0  # Navigation gain, controls the strength of the navigation behavior
+        self.nav_gain = 1.0  # Navigation gain, controls the strength of the navigation behavior
         self.neighbor_range = 1
         
         self.other_boids = []
@@ -66,16 +66,16 @@ class Boid:
         neighbor_boids = self.neighbor_boids
         sep_acc = Point()
 
-        if neighbor_boids != []:
-            # for n_boid in neighbor_boids:
-                
-            #     sep_acc.x = ...
-            #     sep_acc.y = ...
+        for n_boid in self.neighbor_boids:
+            distance = np.linalg.norm(
+                np.array([self.position.x, self.position.y]) - np.array([n_boid.position.x, n_boid.position.y])
+            )
+            if distance > 0:
+                # Calculate repulsion vector inversely proportional to distance
+                sep_acc.x += (self.position.x - n_boid.position.x) / distance**2
+                sep_acc.y += (self.position.y - n_boid.position.y) / distance**2
 
-            return self.limit_acc(sep_acc)
-
-        else:
-            return self.limit_acc(sep_acc)
+        return self.limit_acc(sep_acc)
         
     def cohesion_acc(self):
         """
@@ -87,16 +87,14 @@ class Boid:
         neighbor_boids = self.neighbor_boids
         coh_acc = Point()
 
-        if neighbor_boids != []:
-            # for n_boid in neighbor_boids:
-                
-            #     coh_acc.x = ...
-            #     coh_acc.y = ...
+        if self.neighbor_boids:
+            center_x = sum(n_boid.position.x for n_boid in self.neighbor_boids) / len(self.neighbor_boids)
+            center_y = sum(n_boid.position.y for n_boid in self.neighbor_boids) / len(self.neighbor_boids)
 
-            return self.limit_acc(coh_acc)
+            coh_acc.x = center_x - self.position.x
+            coh_acc.y = center_y - self.position.y
 
-        else:
-            return self.limit_acc(coh_acc)
+        return self.limit_acc(coh_acc)
         
     def allignment_acc(self):
         """
@@ -108,31 +106,63 @@ class Boid:
         neighbor_boids = self.neighbor_boids
         allign_acc = Point()
 
-        if neighbor_boids != []:
-            # for n_boid in neighbor_boids:
-                
-            #     allign_acc.x = ...
-            #     allign_acc.y = ...
-            return self.limit_acc(allign_acc)
-        else:
-            return self.limit_acc(allign_acc)
+        if self.neighbor_boids:
+            avg_vel_x = sum(n_boid.velocity.x for n_boid in self.neighbor_boids) / len(self.neighbor_boids)
+            avg_vel_y = sum(n_boid.velocity.y for n_boid in self.neighbor_boids) / len(self.neighbor_boids)
+
+            allign_acc.x = avg_vel_x - self.velocity.x
+            allign_acc.y = avg_vel_y - self.velocity.y
+
+        return self.limit_acc(allign_acc)
         
+    # def obstacle_acc(self):
+    #     """
+    #     Calculate the obstacle avoidance acceleration using grid map.
+    #     - map is Occupancy grid map
+    #     - Returns a Point() representing the seperation acceleration.
+    #     """
+
+    #     map = self.map
+    #     obs_acc = Point()
+
+    #     need_to_avoid = False
+    #     if need_to_avoid :
+    #         # TODO:
+    #         return self.limit_acc(obs_acc)
+    #     else:
+    #         return self.limit_acc(obs_acc)
+
     def obstacle_acc(self):
         """
         Calculate the obstacle avoidance acceleration using grid map.
-        - map is Occupancy grid map
-        - Returns a Point() representing the seperation acceleration.
+        - map is an Occupancy grid map.
+        - Returns a Point() representing the separation acceleration.
         """
-
         map = self.map
         obs_acc = Point()
 
-        need_to_avoid = False
-        if need_to_avoid :
-            # TODO:
-            return self.limit_acc(obs_acc)
-        else:
-            return self.limit_acc(obs_acc)
+        # Get the robot's position in the grid
+        i = int((self.position.x - map.info.origin.position.x) / map.info.resolution)
+        j = int((self.position.y - map.info.origin.position.y) / map.info.resolution)
+
+        # Iterate over grid cells within a certain range of the robot's position
+        range_x = range(i - 20, i + 21)
+        range_y = range(j - 20, j + 21)
+
+        for x in range_x:
+            for y in range_y:
+                if 0 <= x < map.info.width and 0 <= y < map.info.height:
+                    index = y * map.info.width + x
+                    if map.data[index] > 50:  # Consider as an obstacle if occupancy is above 50
+                        obs_vector_x = self.position.x - (x * map.info.resolution + map.info.origin.position.x)
+                        obs_vector_y = self.position.y - (y * map.info.resolution + map.info.origin.position.y)
+                        distance = np.hypot(obs_vector_x, obs_vector_y)
+                        if distance > 0:
+                            obs_acc.x += obs_vector_x / distance**2
+                            obs_acc.y += obs_vector_y / distance**2
+
+        return self.limit_acc(obs_acc)
+
 
 
     def navigation_acc(self):
@@ -144,7 +174,11 @@ class Boid:
         return nav_acc
     
     def combine_acc(self, nav_acc,coh_acc, allign_acc, sep_acc, obs_acc):
-        return nav_acc
+        combined_acc = Point()
+        combined_acc.x = (nav_acc.x + coh_acc.x + allign_acc.x + sep_acc.x + obs_acc.x) / 5
+        combined_acc.y = (nav_acc.y + coh_acc.y + allign_acc.y + sep_acc.y + obs_acc.y) / 5
+
+        return self.limit_acc(combined_acc)
 
     ##################################################
     #### helper functions

@@ -70,7 +70,7 @@ class BoidNode:
 
     def run(self,_):
         self.boid.update_neigbors(self.other_boids)
-
+        
         nav_acc = self.boid.navigation_acc()
         sep_acc = self.boid.seperation_acc()
         coh_acc = self.boid.cohesion_acc()

@@ -1,6 +1,6 @@
 <launch>
     <!-- Number of boids to spawn -->
-    <param name="boid_count" value="10"/>
+    <param name="boid_count" value="5"/>
 
   
     <node pkg="mrs_project" type="launch_boid.py" name="launch_boid_node" output="screen"> 
