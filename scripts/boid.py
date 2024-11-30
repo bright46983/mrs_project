@@ -162,7 +162,49 @@ class Boid:
             nav_acc.y = (self.goal.y - self.position.y) * self.nav_gain
 
         return nav_acc
-    
+
+    #######################
+    #### Navigation Methods
+    #######################
+    def seek(self):
+        """
+        Computes the required acceleration for the boid to seek its goal.
+        """
+
+        if self.goal is None:
+            return Point()
+
+        distance = np.array([self.position.x, self.position.y]) - np.array([self.goal.x, self.goal.y])
+        squared_distance = np.linalg.norm(distance)**2
+        squared_distance = max(squared_distance, 1e-5)  # Avoid division by zero
+
+        seek_acc = distance / squared_distance
+        return self.limit_acc(seek_acc)
+
+    def arrival(self):
+        """"
+            Computes the required acceleration for the boid to arrive at its goal.
+        """
+
+        if self.goal is None:
+            return Point()
+
+        target_offset = np.array([self.goal.x, self.goal.y]) - np.array([self.position.x, self.position.y])
+        distance = np.linalg.norm(target_offset)
+
+        if distance < getattr(self.goal, "z", 1.0):   #  (z) represents the tolerance or threshold distance (reached the goal).
+            return Point()
+
+        ramped_speed = self.max_vel * (distance / getattr(self.goal, "z", 1.0))
+        clipped_speed = min(ramped_speed, self.max_vel)
+        desired_velocity = (clipped_speed / distance) * target_offset
+
+        arrival_acc = (desired_velocity - np.array([self.velocity.x, self.velocity.y])) / max(self.max_acc, 1e-5)
+
+        return self.limit_acc(arrival_acc)
+
+
+    ########################
     def combine_acc(self, nav_acc,coh_acc, allign_acc, sep_acc, obs_acc):
         return nav_acc
 
