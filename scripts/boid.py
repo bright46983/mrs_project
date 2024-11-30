@@ -199,7 +199,7 @@ class Boid:
         clipped_speed = min(ramped_speed, self.max_vel)
         desired_velocity = (clipped_speed / distance) * target_offset
 
-        arrival_acc = (desired_velocity - np.array([self.velocity.x, self.velocity.y])) / max(self.max_acc, 1e-5)
+        arrival_acc = (desired_velocity - np.array([self.velocity.x, self.velocity.y]))
 
         return self.limit_acc(arrival_acc)
 
