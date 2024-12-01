@@ -27,7 +27,7 @@ class Boid:
         self.max_acc = 6.0
         self.max_vel = 1.8
         self.nav_gain = 0.8  # Navigation gain, controls the strength of the navigation behavior
-        self.neighbor_range = 1.5
+        self.neighbor_range = 1.0
         self.seperation_range = 0.4
         
         self.other_boids = []
@@ -150,8 +150,8 @@ class Boid:
             yvel_avg /= len(neighbor_boids)
 
             # compute necessary acceleration                
-            allign_acc.x = (xvel_avg - self.velocity.x ) *8
-            allign_acc.y = (yvel_avg - self.velocity.y ) *8
+            allign_acc.x = (xvel_avg - self.velocity.x ) 
+            allign_acc.y = (yvel_avg - self.velocity.y ) 
         else:
             allign_acc.x = 0
             allign_acc.y = 0
@@ -203,16 +203,17 @@ class Boid:
     
     def combine_acc_priority(self, nav_acc,sep_acc,coh_acc,allign_acc,obs_acc):
         combined_acc = Point()
-        priority_list = [obs_acc, sep_acc, nav_acc,  allign_acc, coh_acc]
+        priority_list = [obs_acc, sep_acc,  allign_acc, coh_acc,nav_acc]
+        weight_list = [1,1,1,1,0.4]
 
-        for acc in priority_list:
-            combined_acc.x += acc.x   
-            combined_acc.y += acc.y  
+        for i in range(len(priority_list)):
+            combined_acc.x += weight_list[i] * priority_list[i].x   
+            combined_acc.y += weight_list[i] * priority_list[i].y  
 
-            if np.linalg.norm([combined_acc.x,combined_acc.y]) > 6:
+            if np.linalg.norm([combined_acc.x,combined_acc.y]) >self.max_acc:
                 break
         
-        return combined_acc
+        return self.limit_acc(combined_acc)
 
         # combined_acc.x = nav_acc.x  
         # combined_acc.y = nav_acc.y  
