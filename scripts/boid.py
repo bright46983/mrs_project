@@ -4,14 +4,18 @@ from std_msgs.msg import Header
 from random import uniform
 import numpy as np
 
+from utils.OccupancyMap import OccupancyMap
+from utils.SteerToAvoid import SteerToAvoid
+
 class Boid:
     def __init__(self):
         # Initialize Boid's state
-        self.position = Point()
-        self.velocity = Point()
-        self.heading = 0.0
-        self.goal = None
-        self.map = None
+        self.position   = Point()
+        self.velocity   = Point()
+        self.heading    = 0.0
+        self.goal       = None
+        self.perception_field       = OccupancyMap()
+        self.perception_radius      = 1.0  
         
         # Random initial position
         self.position.x = 0
@@ -22,13 +26,15 @@ class Boid:
         self.velocity.y = 0
 
         #tuning params
-        self.max_acc = 3.0
-        self.max_vel = 1.0
-        self.nav_gain = 1.0  # Navigation gain, controls the strength of the navigation behavior
+        self.max_acc    = 2.5
+        self.max_vel    = 1.2
+        self.nav_gain   = 1.0  # Navigation gain, controls the strength of the navigation behavior
         self.neighbor_range = 1
         
         self.other_boids = []
         self.neighbor_boids = []
+
+        self.obs_acc = SteerToAvoid(0.6, 0.174533, 6.28)
 
     # def update_velocity(self, vel ):
     #     # Update velocity 
@@ -38,7 +44,7 @@ class Boid:
     #### Perception 
     ##################################################
 
-    def update_neigbors(self,other_boids):
+    def update_neigbors(self, other_boids):
     
         self.neighbor_boids = []  # Reset neighbor list
         for o_boid in other_boids:
@@ -48,10 +54,28 @@ class Boid:
                     self.neighbor_boids.append(o_boid)
 
         return self.neighbor_boids
+    
+    def update_perception_field(self, map:OccupancyMap):
+        map_crop, map_dim, resolution, origin, there_is_map = map.crop_pos([self.position.x, self.position.y], self.perception_radius)
+        self.perception_field.update(map_crop, map_dim, resolution, origin, there_is_map)
+        # self.perception_field.show_orin_map() 
+        # print(map_crop[:, 20])
+        # print("______________")
+        # print(map_crop[22, :])
+        self.obs_acc.update_map(self.perception_field)
         
 
-    
-    
+    def obstacle_acc(self):
+        boid_pose   = [0.0, 0.0]
+        boid_vel    = [self.velocity.x, self.velocity.y]
+        # boid_vel    = [0.8, 0.0]
+        b = self.obs_acc._steer_to_avoid(boid_pose, boid_vel)
+        a = 1
+        combined_acc = Point()
+        combined_acc.x = b[0]
+        combined_acc.y = b[1]
+        return combined_acc
+        
     ##################################################
     #### Acceleration calculation
     ##################################################
@@ -114,56 +138,6 @@ class Boid:
             allign_acc.y = avg_vel_y - self.velocity.y
 
         return self.limit_acc(allign_acc)
-        
-    # def obstacle_acc(self):
-    #     """
-    #     Calculate the obstacle avoidance acceleration using grid map.
-    #     - map is Occupancy grid map
-    #     - Returns a Point() representing the seperation acceleration.
-    #     """
-
-    #     map = self.map
-    #     obs_acc = Point()
-
-    #     need_to_avoid = False
-    #     if need_to_avoid :
-    #         # TODO:
-    #         return self.limit_acc(obs_acc)
-    #     else:
-    #         return self.limit_acc(obs_acc)
-
-    def obstacle_acc(self):
-        """
-        Calculate the obstacle avoidance acceleration using grid map.
-        - map is an Occupancy grid map.
-        - Returns a Point() representing the separation acceleration.
-        """
-        map = self.map
-        obs_acc = Point()
-
-        # Get the robot's position in the grid
-        i = int((self.position.x - map.info.origin.position.x) / map.info.resolution)
-        j = int((self.position.y - map.info.origin.position.y) / map.info.resolution)
-
-        # Iterate over grid cells within a certain range of the robot's position
-        range_x = range(i - 20, i + 21)
-        range_y = range(j - 20, j + 21)
-
-        for x in range_x:
-            for y in range_y:
-                if 0 <= x < map.info.width and 0 <= y < map.info.height:
-                    index = y * map.info.width + x
-                    if map.data[index] > 50:  # Consider as an obstacle if occupancy is above 50
-                        obs_vector_x = self.position.x - (x * map.info.resolution + map.info.origin.position.x)
-                        obs_vector_y = self.position.y - (y * map.info.resolution + map.info.origin.position.y)
-                        distance = np.hypot(obs_vector_x, obs_vector_y)
-                        if distance > 0:
-                            obs_acc.x += obs_vector_x / distance**2
-                            obs_acc.y += obs_vector_y / distance**2
-
-        return self.limit_acc(obs_acc)
-
-
 
     def navigation_acc(self):
         nav_acc = Point()
@@ -212,3 +186,31 @@ class Boid:
 
         return acc
 
+
+    def _arrival(self):
+        ''' Computes required acceleration for the boid to arrive at the goal.'''
+        desired_vel = Point()
+        desired_vel.x = 0.
+        desired_vel.y = 0.
+        if self.goal:
+            boid_pose = [self.position.x, self.position.y] 
+            boid_goal = [self.goal.x, self.goal.y, 1.0, 0.05]
+            desired_velocity = np.array([0., 0.])
+            if boid_goal != None:
+                target_offset = np.array(boid_goal[:2]) - np.array(boid_pose[:2])   # goal[x, y], not r or tolerance. 
+                distance = np.linalg.norm(target_offset)
+                if distance < boid_goal[3]:
+                    # print("Distance: ", distance)
+                    #TODO: send a flag that boid_goal has been reached and generate a new boid_goal
+                    
+                    return desired_vel # Set the distance to 0 when it falls below the tolerance. 
+
+                ramped_speed = self.max_vel * (distance / boid_goal[2])
+                clipped_speed = np.minimum(ramped_speed, self.max_vel)
+                desired_velocity = (clipped_speed / distance) * target_offset
+                # Sample the desired velocity from the velocity space using probability
+                # desired_velocity = np.array([random.uniform(-self.max_speed, self.max_speed), random.uniform(-self.max_speed, self.max_speed)]) if random.uniform(0, 1) < 0.5 else desired_velocity
+            
+            desired_vel.x = desired_velocity[0]*0.3
+            desired_vel.y = desired_velocity[1]*0.3
+        return desired_vel

@@ -9,6 +9,7 @@ import numpy as np
 import re
 from boid import Boid
 from visualization_msgs.msg import Marker, MarkerArray
+from utils.OccupancyMap import OccupancyMap
 
 class BoidNode:
     def __init__(self,id,boid_count):
@@ -18,16 +19,17 @@ class BoidNode:
         self.frame_id = '/robot_{}/odom'.format(id)
         self.boid_count = boid_count
         
-
         self.enable_visualization = True
         self.visualize_array = MarkerArray()
 
-        self.boid = Boid()
-        self.vel_pub = rospy.Publisher('robot_{}/cmd_vel'.format(self.id), Twist, queue_size=10)
+        self.map = OccupancyMap()       
+ 
+        self.boid       = Boid()
+        self.vel_pub    = rospy.Publisher('robot_{}/cmd_vel'.format(self.id), Twist, queue_size=10)
         self.visual_pub = rospy.Publisher('robot_{}/visualization'.format(self.id), MarkerArray, queue_size=10)
         
         rospy.Subscriber('move_base_simple/goal', PoseStamped, self.goal_cb)
-        rospy.Subscriber('map', OccupancyGrid, self.map_cb)
+        self.map_subscriber = rospy.Subscriber("/map", OccupancyGrid, self.map_cb)
 
         self.other_boids = []
         for i in range(boid_count):
@@ -40,7 +42,6 @@ class BoidNode:
 
         rospy.Timer(rospy.Duration(self.dt), self.run)
         rospy.Timer(rospy.Duration(self.dt), self.visualize)
-
 
     def boid_cb(self, msg):
         if msg.header.frame_id == self.frame_id:
@@ -58,27 +59,35 @@ class BoidNode:
             self.other_boids[id].velocity.y = msg.twist.twist.linear.y
             self.other_boids[id].heading = np.arctan2(self.other_boids[id].velocity.y, self.other_boids[id].velocity.x)
 
-            
-
-    def map_cb(self, msg):
-        self.boid.map = msg
-            
+    def map_cb(self, gridmap):
+        env = np.array(gridmap.data).reshape(gridmap.info.height, gridmap.info.width).T
+        # Set avoid obstacles - The steer to avoid behavior (IN THE DICTIONARY) requires the map, resolution, and origin
+        self.map.set(data=env, 
+                    resolution=gridmap.info.resolution, 
+                    origin=[gridmap.info.origin.position.x, gridmap.info.origin.position.y])
 
     def goal_cb(self, msg):
         self.boid.goal = msg.pose.position
 
-
     def run(self,_):
         self.boid.update_neigbors(self.other_boids)
+
+        # Update perception field for each boid according to environment map
+        self.boid.update_perception_field(self.map)
         
-        nav_acc = self.boid.navigation_acc()
-        sep_acc = self.boid.seperation_acc()
-        coh_acc = self.boid.cohesion_acc()
-        align_acc = self.boid.allignment_acc()
-        obs_acc = self.boid.obstacle_acc()
+        nav_acc     = self.boid.navigation_acc()
+        sep_acc     = self.boid.seperation_acc()
+        coh_acc     = self.boid.cohesion_acc()
+        align_acc   = self.boid.allignment_acc()
+        obs_acc     = self.boid.obstacle_acc()
         
-        all_acc = self.boid.combine_acc(nav_acc,sep_acc,coh_acc,align_acc,obs_acc)
-        out_vel = self.boid.cal_velocity(all_acc,self.dt)
+        desired_vel = self.boid._arrival()
+
+        all_acc     = self.boid.combine_acc(nav_acc,sep_acc,coh_acc,align_acc,obs_acc)
+        out_vel     = self.boid.cal_velocity(all_acc,self.dt)
+
+        out_vel.x   = out_vel.x * 0.85 + desired_vel.x * 0.1
+        out_vel.y   = out_vel.y * 0.85 + desired_vel.y * 0.1
 
         cmd_vel = Twist()
         cmd_vel.linear.x = out_vel.x
@@ -116,7 +125,6 @@ class BoidNode:
 
             self.visualize_array.markers.append(marker)
         
-    
     def visualize_acc(self):
         pass
 
@@ -156,13 +164,10 @@ class BoidNode:
 
         return marker
 
-    
-        
-    
-
 if __name__ == '__main__':
     try:
-        id = int(sys.argv[1])
+        # id = int(sys.argv[1])
+        id = int(0)
         boid_count = rospy.get_param('boid_count', 5)
 
         boid_node = BoidNode(id,boid_count)
