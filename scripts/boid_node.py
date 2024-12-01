@@ -9,6 +9,8 @@ import numpy as np
 import re
 from boid import Boid
 from visualization_msgs.msg import Marker, MarkerArray
+from utils.OccupancyMap import OccupancyMap
+
 
 class BoidNode:
     def __init__(self,id,boid_count):
@@ -17,7 +19,7 @@ class BoidNode:
         self.id = id
         self.frame_id = '/robot_{}/odom'.format(id)
         self.boid_count = boid_count
-        
+        self.map = OccupancyMap() 
 
         self.enable_visualization = True
         self.visualize_array = MarkerArray()
@@ -27,7 +29,7 @@ class BoidNode:
         self.visual_pub = rospy.Publisher('robot_{}/visualization'.format(self.id), MarkerArray, queue_size=10)
         
         rospy.Subscriber('boid_goal', PoseStamped, self.goal_cb)
-        rospy.Subscriber('map', OccupancyGrid, self.map_cb)
+        self.map_subscriber = rospy.Subscriber("/map", OccupancyGrid, self.map_cb)
 
         self.other_boids = []
         for i in range(boid_count):
@@ -62,8 +64,12 @@ class BoidNode:
 
             
 
-    def map_cb(self, msg):
-        self.boid.map = msg
+    def map_cb(self, gridmap):
+        env = np.array(gridmap.data).reshape(gridmap.info.height, gridmap.info.width).T
+        # Set avoid obstacles - The steer to avoid behavior (IN THE DICTIONARY) requires the map, resolution, and origin
+        self.map.set(data=env, 
+                    resolution=gridmap.info.resolution, 
+                    origin=[gridmap.info.origin.position.x, gridmap.info.origin.position.y])
             
 
     def goal_cb(self, msg):

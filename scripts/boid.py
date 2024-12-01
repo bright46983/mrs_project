@@ -4,6 +4,9 @@ from std_msgs.msg import Header
 from random import uniform
 import numpy as np
 
+
+from utils.OccupancyMap import OccupancyMap
+from utils.SteerToAvoid import SteerToAvoid
 def wrap_angle(ang):
     return ang + (2.0 * np.pi * np.floor((np.pi - ang) / (2.0 * np.pi)))
 class Boid:
@@ -13,7 +16,8 @@ class Boid:
         self.velocity = Point()
         self.heading = 0.0
         self.goal = None
-        self.map = None
+        self.perception_field       = OccupancyMap()
+        self.perception_radius      = 1.0  
         
         # Random initial position
         self.position.x = 0
@@ -32,6 +36,9 @@ class Boid:
         
         self.other_boids = []
         self.neighbor_boids = []
+
+        self.obs_acc = SteerToAvoid(0.6, 0.174533, 6.28)
+
 
     # def update_velocity(self, vel ):
     #     # Update velocity 
@@ -54,7 +61,14 @@ class Boid:
 
         return self.neighbor_boids
         
-
+    def update_perception_field(self, map:OccupancyMap):
+        map_crop, map_dim, resolution, origin, there_is_map = map.crop_pos([self.position.x, self.position.y], self.perception_radius)
+        self.perception_field.update(map_crop, map_dim, resolution, origin, there_is_map)
+        # self.perception_field.show_orin_map() 
+        # print(map_crop[:, 20])
+        # print("______________")
+        # print(map_crop[22, :])
+        self.obs_acc.update_map(self.perception_field)
     
     
     ##################################################
@@ -159,22 +173,15 @@ class Boid:
         return self.limit_acc(allign_acc)
         
     def obstacle_acc(self):
-        """
-        Calculate the obstacle avoidance acceleration using grid map.
-        - map is Occupancy grid map
-        - Returns a Point() representing the seperation acceleration.
-        """
-
-        map = self.map
-        obs_acc = Point()
-
-        need_to_avoid = False
-        if need_to_avoid :
-            # TODO:
-            return self.limit_acc(obs_acc)
-        else:
-            return self.limit_acc(obs_acc)
-
+        boid_pose   = [0.0, 0.0]
+        boid_vel    = [self.velocity.x, self.velocity.y]
+        # boid_vel    = [0.8, 0.0]
+        b = self.obs_acc._steer_to_avoid(boid_pose, boid_vel)
+        a = 1
+        combined_acc = Point()
+        combined_acc.x = b[0]
+        combined_acc.y = b[1]
+        return combined_acc
 
     def navigation_acc(self):
         nav_acc = Point()
