@@ -26,7 +26,7 @@ class BoidNode:
         self.vel_pub = rospy.Publisher('robot_{}/cmd_vel'.format(self.id), Twist, queue_size=10)
         self.visual_pub = rospy.Publisher('robot_{}/visualization'.format(self.id), MarkerArray, queue_size=10)
         
-        rospy.Subscriber('move_base_simple/goal', PoseStamped, self.goal_cb)
+        rospy.Subscriber('boid_goal', PoseStamped, self.goal_cb)
         rospy.Subscriber('map', OccupancyGrid, self.map_cb)
 
         self.other_boids = []
@@ -57,7 +57,8 @@ class BoidNode:
             self.other_boids[id].position = msg.pose.pose.position
             self.other_boids[id].velocity.x = msg.twist.twist.linear.x
             self.other_boids[id].velocity.y = msg.twist.twist.linear.y
-            self.other_boids[id].heading = np.arctan2(self.other_boids[id].velocity.y, self.other_boids[id].velocity.x)
+            if msg.twist.twist.linear.x != 0.0 and msg.twist.twist.linear.y != 0.0: # preserve current heading 
+                self.other_boids[id].heading = np.arctan2(self.other_boids[id].velocity.y, self.other_boids[id].velocity.x)
 
             
 
@@ -66,7 +67,9 @@ class BoidNode:
             
 
     def goal_cb(self, msg):
-        self.boid.goal = msg.pose.position
+        if msg.header.frame_id == self.frame_id: 
+            rospy.logwarn("Goal recieved")
+            self.boid.goal = msg.pose.position
 
 
     def run(self,_):
@@ -79,7 +82,7 @@ class BoidNode:
         obs_acc = self.boid.obstacle_acc()
         
         self.acc_list = [nav_acc,sep_acc,coh_acc,align_acc,obs_acc]
-        all_acc = self.boid.combine_acc(nav_acc,sep_acc,coh_acc,align_acc,obs_acc)        
+        all_acc = self.boid.combine_acc_priority(nav_acc,sep_acc,coh_acc,align_acc,obs_acc)        
         out_vel = self.boid.cal_velocity(all_acc,self.dt)
 
         cmd_vel = Twist()

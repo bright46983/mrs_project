@@ -4,6 +4,8 @@ from std_msgs.msg import Header
 from random import uniform
 import numpy as np
 
+def wrap_angle(ang):
+    return ang + (2.0 * np.pi * np.floor((np.pi - ang) / (2.0 * np.pi)))
 class Boid:
     def __init__(self):
         # Initialize Boid's state
@@ -22,10 +24,11 @@ class Boid:
         self.velocity.y = 0
 
         #tuning params
-        self.max_acc = 3.0
-        self.max_vel = 0.5
-        self.nav_gain = 3.0  # Navigation gain, controls the strength of the navigation behavior
-        self.neighbor_range = 1
+        self.max_acc = 6.0
+        self.max_vel = 1.8
+        self.nav_gain = 0.8  # Navigation gain, controls the strength of the navigation behavior
+        self.neighbor_range = 1.5
+        self.seperation_range = 0.4
         
         self.other_boids = []
         self.neighbor_boids = []
@@ -37,14 +40,16 @@ class Boid:
     ##################################################
     #### Perception 
     ##################################################
-
+  
+    
     def update_neigbors(self,other_boids):
     
         self.neighbor_boids = []  # Reset neighbor list
         for o_boid in other_boids:
             if o_boid is not None:
                 dis = np.linalg.norm(np.array([self.position.x, self.position.y])-np.array([o_boid.position.x, o_boid.position.y]))
-                if dis < self.neighbor_range :
+                ang = abs(wrap_angle(self.heading - np.arctan2( o_boid.position.y - self.position.y, o_boid.position.x- self.position.x)))
+                if dis < self.neighbor_range and ang < np.pi/1.05:
                     self.neighbor_boids.append(o_boid)
 
         return self.neighbor_boids
@@ -74,11 +79,11 @@ class Boid:
                 dis = np.linalg.norm(np.array([self.position.x, self.position.y])-np.array([n_boid.position.x, n_boid.position.y]))
 
                 # Avoid division by zero
-                if dis > 0:  # Not sure if it should be exactly 0 or maybe very small value
+                if dis > 0 and dis < self.seperation_range:  # Not sure if it should be exactly 0 or maybe very small value
                     # Repulsion force: inverse proportionality to the distance
                     # This creates a vector pointing away from the neighboring boid.
-                    sep_acc.x += (self.position.x - n_boid.position.x)/dis
-                    sep_acc.y += (self.position.y - n_boid.position.y)/dis
+                    sep_acc.x += (self.position.x - n_boid.position.x)/dis**2
+                    sep_acc.y += (self.position.y - n_boid.position.y)/dis**2
 
             # Normalize the acceleration vector
             magnitude = np.linalg.norm(np.array([sep_acc.x, sep_acc.y]))
@@ -100,6 +105,7 @@ class Boid:
 
         neighbor_boids = self.neighbor_boids
         coh_acc = Point()
+        
 
         if neighbor_boids != []:
             avg_position = Point()
@@ -144,8 +150,8 @@ class Boid:
             yvel_avg /= len(neighbor_boids)
 
             # compute necessary acceleration                
-            allign_acc.x = xvel_avg - self.velocity.x 
-            allign_acc.y = yvel_avg - self.velocity.y 
+            allign_acc.x = (xvel_avg - self.velocity.x ) *8
+            allign_acc.y = (yvel_avg - self.velocity.y ) *8
         else:
             allign_acc.x = 0
             allign_acc.y = 0
@@ -172,19 +178,44 @@ class Boid:
 
     def navigation_acc(self):
         nav_acc = Point()
-        if self.goal:
-            nav_acc.x = (self.goal.x - self.position.x) * self.nav_gain
-            nav_acc.y = (self.goal.y - self.position.y) * self.nav_gain
+        nav_vel = Point()
 
+        if self.goal:
+            nav_vel.x = (self.goal.x - self.position.x) * self.nav_gain
+            nav_vel.y = (self.goal.y - self.position.y) * self.nav_gain
+
+            nav_acc.x = nav_vel.x - self.velocity.x
+            nav_acc.y = nav_vel.y - self.velocity.y
         return self.limit_acc(nav_acc)
     
     def combine_acc(self, nav_acc,sep_acc,coh_acc,allign_acc,obs_acc):
         combined_acc = Point()
-        combined_acc.x = nav_acc.x  +allign_acc.x + 3*sep_acc.x
-        combined_acc.y = nav_acc.y  +allign_acc.y + 3*sep_acc.y
+        combined_acc.x = nav_acc.x  + 10*allign_acc.x + sep_acc.x + 0.2*coh_acc.x 
+        combined_acc.y = nav_acc.y  + 10*allign_acc.y + sep_acc.y + 0.2*coh_acc.y 
 
-        combined_acc.x = nav_acc.x  
-        combined_acc.y = nav_acc.y  
+        # combined_acc.x = nav_acc.x  
+        # combined_acc.y = nav_acc.y  
+
+        # rospy.loginfo("nav,coh,allign,sep,obs,com [x]: {},{},{},{},{}".format(nav_acc.x,coh_acc.x, allign_acc.x, sep_acc.x, obs_acc.x,combined_acc.x))
+        # rospy.loginfo("nav,coh,allign,sep,obs,com [y]: {},{},{},{},{}".format(nav_acc.y,coh_acc.y, allign_acc.y, sep_acc.y, obs_acc.y,combined_acc.y))
+
+        return combined_acc
+    
+    def combine_acc_priority(self, nav_acc,sep_acc,coh_acc,allign_acc,obs_acc):
+        combined_acc = Point()
+        priority_list = [obs_acc, sep_acc, nav_acc,  allign_acc, coh_acc]
+
+        for acc in priority_list:
+            combined_acc.x += acc.x   
+            combined_acc.y += acc.y  
+
+            if np.linalg.norm([combined_acc.x,combined_acc.y]) > 6:
+                break
+        
+        return combined_acc
+
+        # combined_acc.x = nav_acc.x  
+        # combined_acc.y = nav_acc.y  
 
         # rospy.loginfo("nav,coh,allign,sep,obs,com [x]: {},{},{},{},{}".format(nav_acc.x,coh_acc.x, allign_acc.x, sep_acc.x, obs_acc.x,combined_acc.x))
         # rospy.loginfo("nav,coh,allign,sep,obs,com [y]: {},{},{},{},{}".format(nav_acc.y,coh_acc.y, allign_acc.y, sep_acc.y, obs_acc.y,combined_acc.y))
