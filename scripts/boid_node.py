@@ -3,7 +3,7 @@
 import rospy
 from geometry_msgs.msg import Twist, PoseStamped, Point
 from std_msgs.msg import Header
-from nav_msgs.msg import Odometry, OccupancyGrid
+from nav_msgs.msg import Odometry, OccupancyGrid, Path
 import sys
 import numpy as np
 import re
@@ -20,13 +20,19 @@ class BoidNode:
         self.frame_id = '/robot_{}/odom'.format(id)
         self.boid_count = boid_count
         self.map = OccupancyMap() 
+        self.trajectory = Path()
 
         self.enable_visualization = True
         self.visualize_array = MarkerArray()
+        self.visualize_acc_array = MarkerArray()
+
 
         self.boid = Boid()
         self.vel_pub = rospy.Publisher('robot_{}/cmd_vel'.format(self.id), Twist, queue_size=10)
         self.visual_pub = rospy.Publisher('robot_{}/visualization'.format(self.id), MarkerArray, queue_size=10)
+        self.visual_pub_acc = rospy.Publisher('robot_{}/acc'.format(self.id), MarkerArray, queue_size=10)
+
+        self.trajectory_pubs = rospy.Publisher('robot_{}/trajectory'.format(self.id), Path, queue_size=10)
         
         rospy.Subscriber('boid_goal', PoseStamped, self.goal_cb)
         self.map_subscriber = rospy.Subscriber("/map", OccupancyGrid, self.map_cb)
@@ -40,6 +46,8 @@ class BoidNode:
         self.acc_list = []
 
         self.dt = 0.1
+
+        rospy.sleep(2)
 
         rospy.Timer(rospy.Duration(self.dt), self.run)
         rospy.Timer(rospy.Duration(self.dt), self.visualize)
@@ -74,11 +82,13 @@ class BoidNode:
 
     def goal_cb(self, msg):
         if msg.header.frame_id == self.frame_id: 
-            rospy.logwarn("Goal recieved")
+            # rospy.logwarn("Goal recieved")
             self.boid.goal = msg.pose.position
 
 
     def run(self,_):
+        self.boid.update_perception_field(self.map)
+
         self.boid.update_neigbors(self.other_boids)
 
         nav_acc = self.boid.navigation_acc()
@@ -87,8 +97,13 @@ class BoidNode:
         align_acc = self.boid.allignment_acc()
         obs_acc = self.boid.obstacle_acc()
         
+        zero = Point()
         self.acc_list = [nav_acc,sep_acc,coh_acc,align_acc,obs_acc]
-        all_acc = self.boid.combine_acc_priority(nav_acc,sep_acc,coh_acc,align_acc,obs_acc)        
+        # self.acc_list = [zero,zero,zero,zero,obs_acc] #  for report demonstration
+
+        all_acc = self.boid.combine_acc_priority(nav_acc,sep_acc,coh_acc,align_acc,obs_acc)    
+        # all_acc = self.boid.combine_acc_priority(nav_acc,sep_acc,zero,zero,obs_acc) #  for report demonstration       
+    
         out_vel = self.boid.cal_velocity(all_acc,self.dt)
 
         cmd_vel = Twist()
@@ -105,8 +120,10 @@ class BoidNode:
             self.visualize_neighbor()
             self.visualize_goal()
             self.visualize_acc()
-
+            self.update_trajectory()
+            
             self.visual_pub.publish(self.visualize_array)
+            self.visual_pub_acc.publish(self.visualize_acc_array)
 
     def visualize_neighbor(self):
         marker_id  = 0
@@ -116,16 +133,16 @@ class BoidNode:
         ns = "neighbors"
 
         marker = self.create_marker(999,ns, Marker.SPHERE, [self.boid.position.x,self.boid.position.y,0.2], 
-            [0.2,0.2,0.2], [0,1,0,1], frame_id, None)
+            [0.1,0.1,0.1], [0,0,1,1], frame_id, None)
         self.visualize_array.markers.append(marker)
 
 
-        for n in self.boid.neighbor_boids:
-            marker = self.create_marker(marker_id,ns, Marker.SPHERE, [n.position.x, n.position.y, 0.2], 
-            scale, color, frame_id,None)
-            marker_id += 1
+        # for n in self.boid.neighbor_boids:
+        #     marker = self.create_marker(marker_id,ns, Marker.SPHERE, [n.position.x, n.position.y, 0.2], 
+        #     scale, color, frame_id,None)
+        #     marker_id += 1
 
-            self.visualize_array.markers.append(marker)
+        #     self.visualize_array.markers.append(marker)
         
     
     def visualize_acc(self):
@@ -147,14 +164,37 @@ class BoidNode:
             marker = self.create_marker(marker_id,ns, Marker.ARROW, [0,0,0.0], 
                 scale, color, frame_id, points)
             marker_id += 1
-            self.visualize_array.markers.append(marker)
+            self.visualize_acc_array.markers.append(marker)
 
-        
+    def update_trajectory(self):
+        # Create a new pose stamped with the current position
+        pose_stamped = PoseStamped()
+        pose_stamped.header.stamp = rospy.Time.now()
+        pose_stamped.header.frame_id = "map"
+        pose_stamped.pose.position = self.boid.position
+
+        # Update the trajectory for the specified robot
+        \
+        self.trajectory.poses.append(pose_stamped)
+
+        traj_to_keep = 1000
+        if len(self.trajectory.poses) > traj_to_keep:
+            self.trajectory.poses = self.trajectory.poses[-traj_to_keep:]
+
+        self.trajectory.header.frame_id = "map"
+
+        self.trajectory_pubs.publish(self.trajectory)
 
         
 
     def visualize_goal(self):
-        pass
+        if self.boid.goal:
+            frame_id = "map"
+            ns = "goal"
+
+            marker = self.create_marker(666,ns, Marker.SPHERE, [self.boid.goal.x,self.boid.goal.y,0.2], 
+                [0.3,0.3,0.3], [1,0,0,1], frame_id, None)
+            self.visualize_array.markers.append(marker)
 
     def create_marker(self, marker_id, ns, marker_type, position, scale, color, frame_id,points):
         marker = Marker()

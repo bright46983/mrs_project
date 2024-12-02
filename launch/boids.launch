@@ -1,6 +1,6 @@
 <launch>
-    <param name="boid_count" value="15"/>
-    <param name="leader_count" value="1"/>
+    <param name="boid_count" value="10"/>
+    <param name="leader_count" value="5"/>
 
 
 

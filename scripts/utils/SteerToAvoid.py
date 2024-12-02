@@ -221,5 +221,5 @@ class SteerToAvoid:
         self.steering_force = self._create_steering_force(steering_angle)
 
         # Return the steering force vector
-        return self.steering_force
+        return self.steering_force 
 

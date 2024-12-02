@@ -17,7 +17,7 @@ class Boid:
         self.heading = 0.0
         self.goal = None
         self.perception_field       = OccupancyMap()
-        self.perception_radius      = 1.0  
+        self.perception_radius      = 2.0
         
         # Random initial position
         self.position.x = 0
@@ -28,17 +28,18 @@ class Boid:
         self.velocity.y = 0
 
         #tuning params
-        self.max_acc = 6.0
-        self.max_vel = 1.8
+        self.max_acc = 10.0
+        self.max_vel = 1.0
         self.nav_gain = 0.8  # Navigation gain, controls the strength of the navigation behavior
-        self.neighbor_range = 1.0
-        self.seperation_range = 0.4
+        self.neighbor_range = 3.0
+        self.neightbor_angle = np.pi
+        self.seperation_range = 0.35
         
         self.other_boids = []
         self.neighbor_boids = []
 
-        self.obs_acc = SteerToAvoid(0.6, 0.174533, 6.28)
 
+        self.obs_acc = SteerToAvoid(0.8, 0.5, 6.28) #0.6,  0.174533 # stabel [0.8,0.5]
 
     # def update_velocity(self, vel ):
     #     # Update velocity 
@@ -56,7 +57,7 @@ class Boid:
             if o_boid is not None:
                 dis = np.linalg.norm(np.array([self.position.x, self.position.y])-np.array([o_boid.position.x, o_boid.position.y]))
                 ang = abs(wrap_angle(self.heading - np.arctan2( o_boid.position.y - self.position.y, o_boid.position.x- self.position.x)))
-                if dis < self.neighbor_range and ang < np.pi/1.05:
+                if dis < self.neighbor_range and ang < self.neightbor_angle:
                     self.neighbor_boids.append(o_boid)
 
         return self.neighbor_boids
@@ -164,8 +165,8 @@ class Boid:
             yvel_avg /= len(neighbor_boids)
 
             # compute necessary acceleration                
-            allign_acc.x = (xvel_avg - self.velocity.x ) 
-            allign_acc.y = (yvel_avg - self.velocity.y ) 
+            allign_acc.x = (xvel_avg - self.velocity.x ) *3
+            allign_acc.y = (yvel_avg - self.velocity.y ) *3
         else:
             allign_acc.x = 0
             allign_acc.y = 0
@@ -179,8 +180,8 @@ class Boid:
         b = self.obs_acc._steer_to_avoid(boid_pose, boid_vel)
         a = 1
         combined_acc = Point()
-        combined_acc.x = b[0]
-        combined_acc.y = b[1]
+        combined_acc.x = b[0] 
+        combined_acc.y = b[1] 
         return combined_acc
 
     def navigation_acc(self):
@@ -194,6 +195,38 @@ class Boid:
             nav_acc.x = nav_vel.x - self.velocity.x
             nav_acc.y = nav_vel.y - self.velocity.y
         return self.limit_acc(nav_acc)
+    
+    def _arrival(self):
+        ''' Computes required acceleration for the boid to arrive at the goal.'''
+        desired_vel = Point()
+        desired_acc = Point()
+        desired_vel.x = 0.
+        desired_vel.y = 0.
+        if self.goal:
+            boid_pose = [self.position.x, self.position.y] 
+            boid_goal = [self.goal.x, self.goal.y, 1.0, 0.05]
+            desired_velocity = np.array([0., 0.])
+            if boid_goal != None:
+                target_offset = np.array(boid_goal[:2]) - np.array(boid_pose[:2])   # goal[x, y], not r or tolerance. 
+                distance = np.linalg.norm(target_offset)
+                if distance < boid_goal[3]:
+                    # print("Distance: ", distance)
+                    #TODO: send a flag that boid_goal has been reached and generate a new boid_goal
+                    
+                    return desired_vel # Set the distance to 0 when it falls below the tolerance. 
+
+                ramped_speed = self.max_vel * (distance / boid_goal[2])
+                clipped_speed = np.minimum(ramped_speed, self.max_vel)
+                desired_velocity = (clipped_speed / distance) * target_offset
+                # Sample the desired velocity from the velocity space using probability
+                # desired_velocity = np.array([random.uniform(-self.max_speed, self.max_speed), random.uniform(-self.max_speed, self.max_speed)]) if random.uniform(0, 1) < 0.5 else desired_velocity
+            
+            desired_vel.x = desired_velocity[0]*0.3
+            desired_vel.y = desired_velocity[1]*0.3
+
+            desired_acc.x = desired_vel.x - self.velocity.x
+            desired_acc.y = desired_vel.y - self.velocity.y
+        return desired_acc
     
     def combine_acc(self, nav_acc,sep_acc,coh_acc,allign_acc,obs_acc):
         combined_acc = Point()
@@ -210,16 +243,22 @@ class Boid:
     
     def combine_acc_priority(self, nav_acc,sep_acc,coh_acc,allign_acc,obs_acc):
         combined_acc = Point()
-        priority_list = [obs_acc, sep_acc,  allign_acc, coh_acc,nav_acc]
-        weight_list = [1,1,1,1,0.4]
+        arr_acc = self._arrival()
+        priority_list = [obs_acc, sep_acc, arr_acc,nav_acc, allign_acc, coh_acc]
+        weight_list = [8.0,1.0,1.5,0.5,2.0,0.5] # [10.0,0.8,1.5,0.5,2.0,0.5] 
 
         for i in range(len(priority_list)):
             combined_acc.x += weight_list[i] * priority_list[i].x   
             combined_acc.y += weight_list[i] * priority_list[i].y  
-
-            if np.linalg.norm([combined_acc.x,combined_acc.y]) >self.max_acc:
+            
+            if np.linalg.norm([combined_acc.x,combined_acc.y]) >8.5:
+                print(i)
+                # print(combined_acc)
                 break
         
+       
+        print("----")
+
         return self.limit_acc(combined_acc)
 
         # combined_acc.x = nav_acc.x  
@@ -238,6 +277,9 @@ class Boid:
         vel = Point()
         vel.x = self.velocity.x + (acc.x*dt)
         vel.y = self.velocity.y + (acc.y*dt)
+
+        # vel.x = np.tanh(acc.x)
+        # vel.y = np.tanh(acc.y)
 
         out_vel = self.limit_vel(vel)
         return out_vel
