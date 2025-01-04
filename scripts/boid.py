@@ -31,9 +31,16 @@ class Boid:
         self.max_acc = 10.0
         self.max_vel = 0.8
         self.nav_gain = 0.8  # Navigation gain, controls the strength of the navigation behavior
-        self.neighbor_range = 1.2
-        self.neightbor_angle = np.pi/1.4
+        self.neighbor_range = 1.2 # 1.2
+        self.neightbor_angle = np.pi/1
         self.seperation_range = 0.35
+        # [10.0,0.8,1.5,0.5,2.0,0.5] #[6.3,1.5,1.5,0.5,1.4,0.5]
+        # self.weight_list = [7.0,1.4,1.5,0.4,1.4,0.5]
+        self.weight_list = [6.6,1.8,1.5,0.4,1.4,0.5]
+        self.acc_pool = 6.65
+
+        # weight_list = [2.0,2.0,1.5,0.5,6.3,1.5]
+        # weight_list = [1.0,1.0,2.0,1.5,6.3,1.5]
         
         self.other_boids = []
         self.neighbor_boids = []
@@ -248,17 +255,14 @@ class Boid:
         # priority_list = [coh_acc,allign_acc, arr_acc,nav_acc, obs_acc, sep_acc]
         # priority_list = [nav_acc,arr_acc, coh_acc,allign_acc, obs_acc, sep_acc]
 
-         # [10.0,0.8,1.5,0.5,2.0,0.5] #[6.3,1.5,1.5,0.5,1.4,0.5]
-        weight_list = [6.3,1.5,1.5,0.5,1.4,0.5]
-        # weight_list = [2.0,2.0,1.5,0.5,6.3,1.5]
-        # weight_list = [1.0,1.0,2.0,1.5,6.3,1.5]
+         
 
         for i in range(len(priority_list)):
-            combined_acc.x += weight_list[i] * priority_list[i].x   
-            combined_acc.y += weight_list[i] * priority_list[i].y  
+            combined_acc.x += self.weight_list[i] * priority_list[i].x   
+            combined_acc.y += self.weight_list[i] * priority_list[i].y  
             
-            if np.linalg.norm([combined_acc.x,combined_acc.y]) >6.5:
-                print(i)
+            if np.linalg.norm([combined_acc.x,combined_acc.y]) > self.acc_pool: # 6.65
+                # print(i)
                 # print(combined_acc)
                 break
         
@@ -284,8 +288,6 @@ class Boid:
         vel.x = self.velocity.x + (acc.x*dt)
         vel.y = self.velocity.y + (acc.y*dt)
 
-        # vel.x = np.tanh(acc.x)
-        # vel.y = np.tanh(acc.y)
 
         out_vel = self.limit_vel(vel)
         return out_vel

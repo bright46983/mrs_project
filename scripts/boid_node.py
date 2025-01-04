@@ -174,10 +174,10 @@ class BoidNode:
         pose_stamped.pose.position = self.boid.position
 
         # Update the trajectory for the specified robot
-        \
+        
         self.trajectory.poses.append(pose_stamped)
 
-        traj_to_keep = 1000
+        traj_to_keep = 500
         if len(self.trajectory.poses) > traj_to_keep:
             self.trajectory.poses = self.trajectory.poses[-traj_to_keep:]
 
